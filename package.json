@@ -1,0 +1,24 @@
+{
+  "name": "com.codex.mixamo-attachment-toolkit",
+  "version": "0.3.0",
+  "displayName": "Mixamo Attachment Toolkit",
+  "description": "Creates standard attachment sockets on Humanoid or Mixamo rigs and configures weapons, shields, backpacks, capes, belts, and accessories.",
+  "unity": "2022.3",
+  "author": {
+    "name": "Codex"
+  },
+  "keywords": [
+    "mixamo",
+    "humanoid",
+    "attachment",
+    "weapon",
+    "socket"
+  ],
+  "samples": [
+    {
+      "displayName": "Quick Start",
+      "description": "Basic attachment setup guide.",
+      "path": "Samples~/QuickStart"
+    }
+  ]
+}
