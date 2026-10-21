@@ -19,8 +19,6 @@ namespace Codex.MixamoAttachments.Editor
         private bool showSockets = true;
         private bool showAttachment = true;
         private readonly bool[] socketSelections = new bool[SocketDefinition.All.Count];
-        private const string DefaultReferenceModelPath =
-            "Assets/Animate/导入的tpose参考/T-pose-W.fbx";
         private bool useReferenceHandRig = true;
         private bool scaleReferenceByHandLength = true;
         private bool includeAttachmentsInFbx;
@@ -41,7 +39,7 @@ namespace Codex.MixamoAttachments.Editor
                 socketSelections[i] = true;
 
             if (referenceModel == null)
-                referenceModel = AssetDatabase.LoadAssetAtPath<GameObject>(DefaultReferenceModelPath);
+                referenceModel = ReferenceModelLocator.FindDefault();
 
             Selection.selectionChanged += Repaint;
         }
@@ -127,7 +125,7 @@ namespace Codex.MixamoAttachments.Editor
                 ExportCharacterAsFbx();
 
             EditorGUILayout.HelpBox(
-                "保持当前角色网格和整体尺寸；T-pose-W 只提供手部辅助骨骼的层级与局部姿态。导入比例自动设为 1。",
+                "保持当前角色网格和整体尺寸；参考模型提供标准 Socket 与手部辅助骨骼姿态。导入比例自动设为 1。",
                 MessageType.Info);
 
             if (animator == null)
@@ -164,7 +162,7 @@ namespace Codex.MixamoAttachments.Editor
 
             EditorGUILayout.Space(4f);
             useReferenceHandRig = EditorGUILayout.ToggleLeft(
-                "参考 T-pose-W 的手部辅助骨骼和挂点（推荐）",
+                "同步参考模型的标准挂点和手部辅助骨骼（推荐）",
                 useReferenceHandRig);
             if (useReferenceHandRig)
             {

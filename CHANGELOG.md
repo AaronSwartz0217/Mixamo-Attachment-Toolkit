@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2026-10-21
+
+- Automatically discovers `Human_WithReferenceBones.fbx` or legacy `T-pose-W.fbx` reference models anywhere under Assets.
+- Synchronizes all 16 socket poses from the reference model instead of only the five hand sockets.
+- Preserves per-hand length scaling for hand weapon/shield socket positions.
+- Keeps `joint1`/`joint2` pose copying as a compatibility fallback when reference socket nodes are absent.
+
 ## [0.2.2] - 2026-08-05
 
 - Fixed reference helper discovery when imported FBX wrapper nodes change the direct hierarchy.

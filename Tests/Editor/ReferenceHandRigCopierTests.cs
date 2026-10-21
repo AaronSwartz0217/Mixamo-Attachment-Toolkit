@@ -53,6 +53,27 @@ namespace Codex.MixamoAttachments.Editor.Tests
             Assert.That(FindAllByName(target.transform, "joint2"), Is.EqualTo(1));
         }
 
+        [Test]
+        public void Apply_PrefersReferenceSocketPoseAndScalesHandPosition()
+        {
+            Assert.That(SocketDefinition.TryGet(AttachmentType.RightHandWeapon, out var definition), Is.True);
+            var targetSocket = SocketCreator.CreateOrRepair(target, null, definition);
+            var referenceHand = reference.transform.Find("mixamorig:RightHand");
+            var referenceSocket = new GameObject(definition.SocketName).transform;
+            referenceSocket.SetParent(referenceHand, false);
+            referenceSocket.localPosition = new Vector3(0.01f, 0.03f, -0.02f);
+            referenceSocket.localRotation = Quaternion.Euler(15f, 25f, 35f);
+            referenceSocket.localScale = new Vector3(1.1f, 1.2f, 1.3f);
+
+            ReferenceHandRigCopier.Apply(target, null, reference, true);
+
+            Assert.That(targetSocket.transform.localPosition,
+                Is.EqualTo(new Vector3(0.02f, 0.06f, -0.04f)));
+            Assert.That(Quaternion.Angle(targetSocket.transform.localRotation, referenceSocket.localRotation),
+                Is.LessThan(0.001f));
+            Assert.That(targetSocket.transform.localScale, Is.EqualTo(referenceSocket.localScale));
+        }
+
         private static GameObject CreateHands(string rootName, float fingerLength, bool includeReferenceJoints)
         {
             var root = new GameObject(rootName);

@@ -14,7 +14,7 @@
 - 使用 `WeaponAttachmentProfile` 保存基础恒定偏移和动作状态偏移。
 - 支持 Default、Idle、Walk、Run、Sprint、Attack、Block、Holster 状态。
 - 运行时状态切换采用平滑位置、旋转和缩放过渡。
-- 默认可参考 `T-pose-W.fbx` 的 `transform1/joint1` 与 `transform2/joint2` 创建手部辅助骨骼和挂点姿态。
+- 自动查找 `Human_WithReferenceBones.fbx`（兼容旧 `T-pose-W.fbx`），同步完整 16 个标准挂点，并复制手部辅助骨骼。
 - 编辑器场景修改支持 Undo。
 
 ## 安装
@@ -60,19 +60,19 @@ FBX Exporter（`com.unity.formats.fbx`），且不会覆盖原始 FBX。
 
 ## T-pose-W 参考骨骼
 
-“参考 T-pose-W 的手部辅助骨骼和挂点”默认勾选。插件默认查找：
+“参考模型的标准挂点和手部辅助骨骼”默认勾选。插件会在 `Assets` 下自动查找，优先使用：
 
 ```text
-Assets/Animate/导入的tpose参考/T-pose-W.fbx
+Human_WithReferenceBones.fbx
 ```
 
 创建 Socket 时会：
 
-1. 在右手下复制 `transform1/joint1`。
-2. 在左手下复制 `transform2/joint2`。
-3. 将左右手武器、双手武器及手持盾牌 Socket 对齐参考关节姿态。
-4. 默认按照目标与参考模型的手掌长度比例修正 Position。
-5. 已有同名辅助节点时更新姿态，不重复创建。
+1. 将参考模型中的 16 个 `Socket_*` 局部姿态同步到目标角色对应骨骼。
+2. 在右手下复制 `transform1/joint1`，在左手下复制 `transform2/joint2`。
+3. 左右手武器、双手武器及手持盾牌的位置按对应手掌长度比例修正。
+4. 参考模型缺少手部 Socket 时，兼容使用 `joint1/joint2` 姿态。
+5. 已有同名辅助节点和 Socket 时只更新姿态，不重复创建。
 
 取消该选项后，插件继续使用标准零偏移 Socket。参考姿态仍可通过装备 Profile 和 Scene 手工调整覆盖。
 

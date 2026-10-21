@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -46,12 +47,17 @@ namespace Codex.MixamoAttachments.Editor
 
             created += CopyExtraChain(referenceRight, targetRight, "transform1", "joint1", rightScale);
             created += CopyExtraChain(referenceLeft, targetLeft, "transform2", "joint2", leftScale);
+            var synchronized = new HashSet<AttachmentType>();
+            updated += ApplyReferenceSocketPoses(
+                targetRoot, targetAnimator, referenceModel, referenceAnimator,
+                rightScale, leftScale, synchronized);
             updated += ApplyJointPoseToSockets(
                 targetRoot,
                 referenceRight,
                 targetRight,
                 "joint1",
                 rightScale,
+                synchronized,
                 AttachmentType.RightHandWeapon,
                 AttachmentType.TwoHandWeapon,
                 AttachmentType.RightHandShield);
@@ -61,10 +67,60 @@ namespace Codex.MixamoAttachments.Editor
                 targetLeft,
                 "joint2",
                 leftScale,
+                synchronized,
                 AttachmentType.LeftHandWeapon,
                 AttachmentType.LeftHandShield);
 
             return new Result(created, updated, rightScale, leftScale);
+        }
+
+        private static int ApplyReferenceSocketPoses(
+            GameObject targetRoot,
+            Animator targetAnimator,
+            GameObject referenceRoot,
+            Animator referenceAnimator,
+            float rightScale,
+            float leftScale,
+            HashSet<AttachmentType> synchronized)
+        {
+            var updated = 0;
+            foreach (var definition in SocketDefinition.All)
+            {
+                var targetBone = MixamoBoneResolver.Resolve(targetRoot, targetAnimator, definition);
+                var referenceBone = MixamoBoneResolver.Resolve(referenceRoot, referenceAnimator, definition);
+                var targetSocket = SocketCreator.FindExisting(targetRoot, definition);
+                var referenceSocket = FindDirectChild(referenceBone, definition.SocketName);
+                if (targetBone == null || referenceSocket == null || targetSocket == null ||
+                    targetSocket.transform.parent != targetBone)
+                    continue;
+
+                var positionScale = GetSocketPositionScale(definition.Type, rightScale, leftScale);
+                Undo.RecordObject(targetSocket.transform, "应用参考模型挂点姿态");
+                targetSocket.transform.localPosition = referenceSocket.localPosition * positionScale;
+                targetSocket.transform.localRotation = referenceSocket.localRotation;
+                targetSocket.transform.localScale = referenceSocket.localScale;
+                EditorUtility.SetDirty(targetSocket.transform);
+                synchronized.Add(definition.Type);
+                updated++;
+            }
+
+            return updated;
+        }
+
+        private static float GetSocketPositionScale(AttachmentType type, float rightScale, float leftScale)
+        {
+            switch (type)
+            {
+                case AttachmentType.RightHandWeapon:
+                case AttachmentType.RightHandShield:
+                case AttachmentType.TwoHandWeapon:
+                    return rightScale;
+                case AttachmentType.LeftHandWeapon:
+                case AttachmentType.LeftHandShield:
+                    return leftScale;
+                default:
+                    return 1f;
+            }
         }
 
         private static Transform ResolveHand(GameObject root, Animator animator, bool right)
@@ -148,6 +204,7 @@ namespace Codex.MixamoAttachments.Editor
             Transform targetHand,
             string jointName,
             float scale,
+            HashSet<AttachmentType> synchronized,
             params AttachmentType[] socketTypes)
         {
             if (referenceHand == null || targetHand == null)
@@ -163,6 +220,8 @@ namespace Codex.MixamoAttachments.Editor
 
             foreach (var type in socketTypes)
             {
+                if (synchronized.Contains(type))
+                    continue;
                 if (!SocketDefinition.TryGet(type, out var definition))
                     continue;
 
