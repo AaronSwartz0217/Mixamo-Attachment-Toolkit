@@ -96,6 +96,19 @@ namespace Codex.MixamoAttachments.Editor.Tests
             Assert.That(Quaternion.Angle(targetRootRotation, referenceRootRotation), Is.LessThan(0.001f));
             Assert.That(Quaternion.Angle(targetSocket.transform.localRotation, referenceSocket.localRotation),
                 Is.GreaterThan(1f));
+
+            var targetHelper = targetHand.Find("transform1");
+            var targetJoint = targetHelper.Find("joint1");
+            var referenceHelper = referenceHand.Find("transform1");
+            var referenceJoint = referenceHelper.Find("joint1");
+            var targetHelperRootRotation = Quaternion.Inverse(target.transform.rotation) * targetHelper.rotation;
+            var referenceHelperRootRotation = Quaternion.Inverse(reference.transform.rotation) * referenceHelper.rotation;
+            var targetJointRootRotation = Quaternion.Inverse(target.transform.rotation) * targetJoint.rotation;
+            var referenceJointRootRotation = Quaternion.Inverse(reference.transform.rotation) * referenceJoint.rotation;
+            Assert.That(Quaternion.Angle(targetHelperRootRotation, referenceHelperRootRotation),
+                Is.LessThan(0.001f));
+            Assert.That(Quaternion.Angle(targetJointRootRotation, referenceJointRootRotation),
+                Is.LessThan(0.001f));
         }
 
         [Test]
