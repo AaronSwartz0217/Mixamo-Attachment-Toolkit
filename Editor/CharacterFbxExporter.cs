@@ -24,10 +24,13 @@ namespace Codex.MixamoAttachments.Editor
                 return false;
             }
 
-            var exportMethod = exporterType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .FirstOrDefault(method => method.Name == "ExportObject" &&
-                    method.GetParameters().Length == 2 &&
-                    method.GetParameters()[0].ParameterType == typeof(string));
+            var exportMethods = exporterType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.Name == "ExportObject" &&
+                    method.GetParameters().Length >= 2 &&
+                    method.GetParameters()[0].ParameterType == typeof(string))
+                .ToArray();
+            var exportMethod = exportMethods.FirstOrDefault(method => method.GetParameters().Length == 3) ??
+                               exportMethods.FirstOrDefault(method => method.GetParameters().Length == 2);
             if (exportMethod == null)
             {
                 error = "当前 FBX Exporter 没有兼容的 ExportObject 接口。";
@@ -47,7 +50,10 @@ namespace Codex.MixamoAttachments.Editor
                     foreach (var item in exportCopy.GetComponentsInChildren<AttachmentItem>(true))
                         UnityEngine.Object.DestroyImmediate(item.gameObject);
 
-                exportMethod.Invoke(null, new object[] { absolutePath, exportCopy });
+                var parameters = exportMethod.GetParameters().Length == 3
+                    ? new[] { (object)absolutePath, exportCopy, CreateBinaryExportOptions(exportMethod) }
+                    : new object[] { absolutePath, exportCopy };
+                exportMethod.Invoke(null, parameters);
                 if (!File.Exists(absolutePath))
                 {
                     error = "FBX Exporter 未生成文件，请检查 Unity Console。";
@@ -79,6 +85,19 @@ namespace Codex.MixamoAttachments.Editor
             return AppDomain.CurrentDomain.GetAssemblies()
                 .Select(assembly => assembly.GetType(ExporterTypeName, false))
                 .FirstOrDefault(type => type != null);
+        }
+
+        private static object CreateBinaryExportOptions(MethodInfo exportMethod)
+        {
+            var optionsType = exportMethod.GetParameters()[2].ParameterType;
+            var options = Activator.CreateInstance(optionsType);
+            var formatProperty = optionsType.GetProperty("ExportFormat", BindingFlags.Public | BindingFlags.Instance);
+            if (formatProperty == null || !formatProperty.CanWrite || !formatProperty.PropertyType.IsEnum)
+                return options;
+
+            var binary = Enum.Parse(formatProperty.PropertyType, "Binary", true);
+            formatProperty.SetValue(options, binary);
+            return options;
         }
 
         private static void ConfigureImporterWhenInsideProject(string absolutePath)

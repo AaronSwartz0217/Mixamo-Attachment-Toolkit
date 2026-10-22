@@ -74,6 +74,77 @@ namespace Codex.MixamoAttachments.Editor.Tests
             Assert.That(targetSocket.transform.localScale, Is.EqualTo(referenceSocket.localScale));
         }
 
+        [Test]
+        public void Apply_CompensatesDifferentHandAxesInCharacterSpace()
+        {
+            Assert.That(SocketDefinition.TryGet(AttachmentType.RightHandWeapon, out var definition), Is.True);
+            var targetSocket = SocketCreator.CreateOrRepair(target, null, definition);
+            var targetHand = target.transform.Find("mixamorig:RightHand");
+            var referenceHand = reference.transform.Find("mixamorig:RightHand");
+            targetHand.localRotation = Quaternion.Euler(32f, -47f, 18f);
+            referenceHand.localRotation = Quaternion.Euler(-21f, 63f, -12f);
+
+            var referenceSocket = new GameObject(definition.SocketName).transform;
+            referenceSocket.SetParent(referenceHand, false);
+            referenceSocket.localPosition = new Vector3(0.01f, 0.03f, -0.02f);
+            referenceSocket.localRotation = Quaternion.Euler(15f, 25f, 35f);
+
+            ReferenceHandRigCopier.Apply(target, null, reference, true, true);
+
+            var targetRootRotation = Quaternion.Inverse(target.transform.rotation) * targetSocket.transform.rotation;
+            var referenceRootRotation = Quaternion.Inverse(reference.transform.rotation) * referenceSocket.rotation;
+            Assert.That(Quaternion.Angle(targetRootRotation, referenceRootRotation), Is.LessThan(0.001f));
+            Assert.That(Quaternion.Angle(targetSocket.transform.localRotation, referenceSocket.localRotation),
+                Is.GreaterThan(1f));
+        }
+
+        [Test]
+        public void Apply_CanKeepLegacyLocalRotationCopying()
+        {
+            Assert.That(SocketDefinition.TryGet(AttachmentType.RightHandWeapon, out var definition), Is.True);
+            var targetSocket = SocketCreator.CreateOrRepair(target, null, definition);
+            var targetHand = target.transform.Find("mixamorig:RightHand");
+            var referenceHand = reference.transform.Find("mixamorig:RightHand");
+            targetHand.localRotation = Quaternion.Euler(32f, -47f, 18f);
+            referenceHand.localRotation = Quaternion.Euler(-21f, 63f, -12f);
+
+            var referenceSocket = new GameObject(definition.SocketName).transform;
+            referenceSocket.SetParent(referenceHand, false);
+            referenceSocket.localRotation = Quaternion.Euler(15f, 25f, 35f);
+
+            ReferenceHandRigCopier.Apply(target, null, reference, true, false);
+
+            Assert.That(Quaternion.Angle(targetSocket.transform.localRotation, referenceSocket.localRotation),
+                Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void EnsureLegacyHandChains_RebuildsBothChainsFromWeaponSockets()
+        {
+            Assert.That(SocketDefinition.TryGet(AttachmentType.RightHandWeapon, out var right), Is.True);
+            Assert.That(SocketDefinition.TryGet(AttachmentType.LeftHandWeapon, out var left), Is.True);
+            var rightSocket = SocketCreator.CreateOrRepair(target, null, right);
+            var leftSocket = SocketCreator.CreateOrRepair(target, null, left);
+            rightSocket.transform.localPosition = new Vector3(0.11f, 0.12f, 0.13f);
+            rightSocket.transform.localRotation = Quaternion.Euler(10f, 20f, 30f);
+            leftSocket.transform.localPosition = new Vector3(-0.21f, 0.22f, 0.23f);
+            leftSocket.transform.localRotation = Quaternion.Euler(-15f, 25f, -35f);
+
+            var created = ReferenceHandRigCopier.EnsureLegacyHandChains(target, null);
+            var joint1 = Find(target.transform, "transform1/joint1");
+            var joint2 = Find(target.transform, "transform2/joint2");
+
+            Assert.That(created, Is.EqualTo(4));
+            Assert.That(joint1, Is.Not.Null);
+            Assert.That(joint2, Is.Not.Null);
+            Assert.That(joint1.localPosition, Is.EqualTo(rightSocket.transform.localPosition));
+            Assert.That(joint2.localPosition, Is.EqualTo(leftSocket.transform.localPosition));
+            Assert.That(Quaternion.Angle(joint1.localRotation, rightSocket.transform.localRotation),
+                Is.LessThan(0.001f));
+            Assert.That(Quaternion.Angle(joint2.localRotation, leftSocket.transform.localRotation),
+                Is.LessThan(0.001f));
+        }
+
         private static GameObject CreateHands(string rootName, float fingerLength, bool includeReferenceJoints)
         {
             var root = new GameObject(rootName);

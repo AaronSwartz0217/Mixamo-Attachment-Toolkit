@@ -27,7 +27,8 @@ namespace Codex.MixamoAttachments.Editor
             GameObject targetRoot,
             Animator targetAnimator,
             GameObject referenceModel,
-            bool scaleByHandLength)
+            bool scaleByHandLength,
+            bool preserveReferenceSpaceRotation = true)
         {
             if (targetRoot == null || referenceModel == null)
                 return default;
@@ -45,33 +46,108 @@ namespace Codex.MixamoAttachments.Editor
             var created = 0;
             var updated = 0;
 
-            created += CopyExtraChain(referenceRight, targetRight, "transform1", "joint1", rightScale);
-            created += CopyExtraChain(referenceLeft, targetLeft, "transform2", "joint2", leftScale);
+            created += CopyExtraChain(
+                referenceRight, targetRight, "transform1", "joint1", rightScale,
+                referenceModel.transform, targetRoot.transform, preserveReferenceSpaceRotation);
+            created += CopyExtraChain(
+                referenceLeft, targetLeft, "transform2", "joint2", leftScale,
+                referenceModel.transform, targetRoot.transform, preserveReferenceSpaceRotation);
             var synchronized = new HashSet<AttachmentType>();
             updated += ApplyReferenceSocketPoses(
                 targetRoot, targetAnimator, referenceModel, referenceAnimator,
-                rightScale, leftScale, synchronized);
+                rightScale, leftScale, synchronized, preserveReferenceSpaceRotation);
             updated += ApplyJointPoseToSockets(
                 targetRoot,
+                referenceModel,
                 referenceRight,
                 targetRight,
                 "joint1",
                 rightScale,
+                preserveReferenceSpaceRotation,
                 synchronized,
                 AttachmentType.RightHandWeapon,
                 AttachmentType.TwoHandWeapon,
                 AttachmentType.RightHandShield);
             updated += ApplyJointPoseToSockets(
                 targetRoot,
+                referenceModel,
                 referenceLeft,
                 targetLeft,
                 "joint2",
                 leftScale,
+                preserveReferenceSpaceRotation,
                 synchronized,
                 AttachmentType.LeftHandWeapon,
                 AttachmentType.LeftHandShield);
 
             return new Result(created, updated, rightScale, leftScale);
+        }
+
+        public static int EnsureLegacyHandChains(
+            GameObject targetRoot,
+            Animator targetAnimator)
+        {
+            if (targetRoot == null)
+                return 0;
+
+            var created = 0;
+            created += EnsureLegacyHandChain(
+                targetRoot,
+                ResolveHand(targetRoot, targetAnimator, true),
+                "transform1",
+                "joint1",
+                AttachmentType.RightHandWeapon);
+            created += EnsureLegacyHandChain(
+                targetRoot,
+                ResolveHand(targetRoot, targetAnimator, false),
+                "transform2",
+                "joint2",
+                AttachmentType.LeftHandWeapon);
+            return created;
+        }
+
+        private static int EnsureLegacyHandChain(
+            GameObject targetRoot,
+            Transform hand,
+            string transformName,
+            string jointName,
+            AttachmentType sourceSocketType)
+        {
+            if (hand == null ||
+                !SocketDefinition.TryGet(sourceSocketType, out var definition))
+                return 0;
+
+            var socket = SocketCreator.FindExisting(targetRoot, definition);
+            if (socket == null || socket.transform.parent != hand)
+                return 0;
+
+            var created = 0;
+            var helper = FindDirectChild(hand, transformName);
+            if (helper == null)
+            {
+                helper = CreateChild(hand, transformName);
+                created++;
+            }
+
+            Undo.RecordObject(helper, "更新兼容挂点辅助节点");
+            helper.localPosition = Vector3.zero;
+            helper.localRotation = Quaternion.identity;
+            helper.localScale = Vector3.one;
+            EditorUtility.SetDirty(helper);
+
+            var joint = FindDirectChild(helper, jointName);
+            if (joint == null)
+            {
+                joint = CreateChild(helper, jointName);
+                created++;
+            }
+
+            Undo.RecordObject(joint, "更新兼容挂点关节");
+            joint.localPosition = socket.transform.localPosition;
+            joint.localRotation = socket.transform.localRotation;
+            joint.localScale = socket.transform.localScale;
+            EditorUtility.SetDirty(joint);
+            return created;
         }
 
         private static int ApplyReferenceSocketPoses(
@@ -81,7 +157,8 @@ namespace Codex.MixamoAttachments.Editor
             Animator referenceAnimator,
             float rightScale,
             float leftScale,
-            HashSet<AttachmentType> synchronized)
+            HashSet<AttachmentType> synchronized,
+            bool preserveReferenceSpaceRotation)
         {
             var updated = 0;
             foreach (var definition in SocketDefinition.All)
@@ -97,7 +174,12 @@ namespace Codex.MixamoAttachments.Editor
                 var positionScale = GetSocketPositionScale(definition.Type, rightScale, leftScale);
                 Undo.RecordObject(targetSocket.transform, "应用参考模型挂点姿态");
                 targetSocket.transform.localPosition = referenceSocket.localPosition * positionScale;
-                targetSocket.transform.localRotation = referenceSocket.localRotation;
+                targetSocket.transform.localRotation = ConvertLocalRotation(
+                    referenceSocket,
+                    referenceRoot.transform,
+                    targetSocket.transform.parent,
+                    targetRoot.transform,
+                    preserveReferenceSpaceRotation);
                 targetSocket.transform.localScale = referenceSocket.localScale;
                 EditorUtility.SetDirty(targetSocket.transform);
                 synchronized.Add(definition.Type);
@@ -159,7 +241,10 @@ namespace Codex.MixamoAttachments.Editor
             Transform targetHand,
             string transformName,
             string jointName,
-            float scale)
+            float scale,
+            Transform referenceRoot,
+            Transform targetRoot,
+            bool preserveReferenceSpaceRotation)
         {
             if (referenceHand == null || targetHand == null)
                 return 0;
@@ -185,7 +270,13 @@ namespace Codex.MixamoAttachments.Editor
                 created++;
             }
 
-            CopyLocalPose(referenceTransform, targetTransform, scale);
+            CopyLocalPose(
+                referenceTransform,
+                targetTransform,
+                scale,
+                referenceRoot,
+                targetRoot,
+                preserveReferenceSpaceRotation);
 
             var targetJoint = FindDirectChild(targetTransform, jointName);
             if (targetJoint == null)
@@ -194,16 +285,24 @@ namespace Codex.MixamoAttachments.Editor
                 created++;
             }
 
-            CopyLocalPose(referenceJoint, targetJoint, scale);
+            CopyLocalPose(
+                referenceJoint,
+                targetJoint,
+                scale,
+                referenceRoot,
+                targetRoot,
+                preserveReferenceSpaceRotation);
             return created;
         }
 
         private static int ApplyJointPoseToSockets(
             GameObject targetRoot,
+            GameObject referenceRoot,
             Transform referenceHand,
             Transform targetHand,
             string jointName,
             float scale,
+            bool preserveReferenceSpaceRotation,
             HashSet<AttachmentType> synchronized,
             params AttachmentType[] socketTypes)
         {
@@ -215,7 +314,6 @@ namespace Codex.MixamoAttachments.Editor
                 return 0;
 
             var referencePosition = referenceHand.InverseTransformPoint(referenceJoint.position) * scale;
-            var referenceRotation = Quaternion.Inverse(referenceHand.rotation) * referenceJoint.rotation;
             var updated = 0;
 
             foreach (var type in socketTypes)
@@ -231,7 +329,12 @@ namespace Codex.MixamoAttachments.Editor
 
                 Undo.RecordObject(socket.transform, "应用参考手部挂点姿态");
                 socket.transform.localPosition = referencePosition;
-                socket.transform.localRotation = referenceRotation;
+                socket.transform.localRotation = ConvertLocalRotation(
+                    referenceJoint,
+                    referenceRoot.transform,
+                    socket.transform.parent,
+                    targetRoot.transform,
+                    preserveReferenceSpaceRotation);
                 socket.transform.localScale = Vector3.one;
                 EditorUtility.SetDirty(socket.transform);
                 updated++;
@@ -248,13 +351,44 @@ namespace Codex.MixamoAttachments.Editor
             return child;
         }
 
-        private static void CopyLocalPose(Transform source, Transform target, float positionScale)
+        private static void CopyLocalPose(
+            Transform source,
+            Transform target,
+            float positionScale,
+            Transform sourceRoot,
+            Transform targetRoot,
+            bool preserveReferenceSpaceRotation)
         {
             Undo.RecordObject(target, "更新参考辅助骨骼");
             target.localPosition = source.localPosition * positionScale;
-            target.localRotation = source.localRotation;
+            target.localRotation = ConvertLocalRotation(
+                source,
+                sourceRoot,
+                target.parent,
+                targetRoot,
+                preserveReferenceSpaceRotation);
             target.localScale = source.localScale;
             EditorUtility.SetDirty(target);
+        }
+
+        private static Quaternion ConvertLocalRotation(
+            Transform source,
+            Transform sourceRoot,
+            Transform targetParent,
+            Transform targetRoot,
+            bool preserveReferenceSpaceRotation)
+        {
+            if (!preserveReferenceSpaceRotation ||
+                source == null || sourceRoot == null || targetParent == null || targetRoot == null)
+                return source != null ? source.localRotation : Quaternion.identity;
+
+            // localRotation only has meaning in the source bone's coordinate system. Mixamo
+            // characters can use very different hand bases, so copying it verbatim visibly
+            // rotates weapons. Convert through each character root to preserve the reference
+            // socket's character-space axes on the target rig.
+            var sourceRootRotation = Quaternion.Inverse(sourceRoot.rotation) * source.rotation;
+            var targetParentRootRotation = Quaternion.Inverse(targetRoot.rotation) * targetParent.rotation;
+            return Quaternion.Inverse(targetParentRootRotation) * sourceRootRotation;
         }
 
         private static Transform FindDirectChild(Transform parent, string expectedName)

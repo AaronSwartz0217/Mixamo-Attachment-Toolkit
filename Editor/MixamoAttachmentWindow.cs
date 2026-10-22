@@ -21,6 +21,7 @@ namespace Codex.MixamoAttachments.Editor
         private readonly bool[] socketSelections = new bool[SocketDefinition.All.Count];
         private bool useReferenceHandRig = true;
         private bool scaleReferenceByHandLength = true;
+        private bool preserveReferenceSpaceRotation = true;
         private bool includeAttachmentsInFbx;
         private GameObject referenceModel;
 
@@ -174,6 +175,9 @@ namespace Codex.MixamoAttachments.Editor
                 scaleReferenceByHandLength = EditorGUILayout.ToggleLeft(
                     "按目标与参考手掌长度修正位置比例",
                     scaleReferenceByHandLength);
+                preserveReferenceSpaceRotation = EditorGUILayout.ToggleLeft(
+                    "补偿骨架轴差异，保持参考挂点朝向（推荐）",
+                    preserveReferenceSpaceRotation);
 
                 if (referenceModel == null)
                     EditorGUILayout.HelpBox("没有找到参考模型，将使用原来的零偏移 Socket。", MessageType.Warning);
@@ -409,9 +413,16 @@ namespace Codex.MixamoAttachments.Editor
                     characterRoot,
                     animator,
                     referenceModel,
-                    scaleReferenceByHandLength);
+                    scaleReferenceByHandLength,
+                    preserveReferenceSpaceRotation);
                 MarkSceneDirty();
             }
+
+            // Legacy equipment code still looks for RightHand/transform1/joint1 and
+            // LeftHand/transform2/joint2. Always rebuild these chains from the final
+            // hand socket poses before FBX export, even when no reference model is used.
+            ReferenceHandRigCopier.EnsureLegacyHandChains(characterRoot, animator);
+            MarkSceneDirty();
 
             if (!CharacterFbxExporter.IsAvailable)
             {
@@ -475,7 +486,8 @@ namespace Codex.MixamoAttachments.Editor
                     characterRoot,
                     animator,
                     referenceModel,
-                    scaleReferenceByHandLength);
+                    scaleReferenceByHandLength,
+                    preserveReferenceSpaceRotation);
             }
 
             EnsureController();

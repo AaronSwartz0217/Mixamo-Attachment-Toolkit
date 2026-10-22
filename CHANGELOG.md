@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2] - 2026-10-22
+
+- Compensates differing source/target hand bone axes so weapon sockets preserve the reference character-space orientation.
+- Adds a default-enabled compatibility option to fall back to legacy local-rotation copying when required.
+- Adds editor tests for rotated source and target hand coordinate systems.
+
 ## [0.3.1] - 2026-10-21
 
 - Automatically discovers `Human_WithReferenceBones.fbx` or legacy `T-pose-W.fbx` reference models anywhere under Assets.
