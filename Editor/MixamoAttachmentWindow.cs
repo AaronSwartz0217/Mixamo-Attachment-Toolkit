@@ -176,7 +176,7 @@ namespace Codex.MixamoAttachments.Editor
                     "按目标与参考手掌长度修正位置比例",
                     scaleReferenceByHandLength);
                 preserveReferenceSpaceRotation = EditorGUILayout.ToggleLeft(
-                    "补偿骨架轴差异，保持参考挂点朝向（推荐）",
+                    "补偿骨架轴差异，保持参考挂点位置和朝向（推荐）",
                     preserveReferenceSpaceRotation);
 
                 if (referenceModel == null)

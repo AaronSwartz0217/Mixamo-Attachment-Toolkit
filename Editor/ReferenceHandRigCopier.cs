@@ -173,7 +173,13 @@ namespace Codex.MixamoAttachments.Editor
 
                 var positionScale = GetSocketPositionScale(definition.Type, rightScale, leftScale);
                 Undo.RecordObject(targetSocket.transform, "应用参考模型挂点姿态");
-                targetSocket.transform.localPosition = referenceSocket.localPosition * positionScale;
+                targetSocket.transform.localPosition = ConvertLocalPosition(
+                    referenceSocket,
+                    referenceRoot.transform,
+                    targetSocket.transform.parent,
+                    targetRoot.transform,
+                    positionScale,
+                    preserveReferenceSpaceRotation);
                 targetSocket.transform.localRotation = ConvertLocalRotation(
                     referenceSocket,
                     referenceRoot.transform,
@@ -313,7 +319,6 @@ namespace Codex.MixamoAttachments.Editor
             if (referenceJoint == null)
                 return 0;
 
-            var referencePosition = referenceHand.InverseTransformPoint(referenceJoint.position) * scale;
             var updated = 0;
 
             foreach (var type in socketTypes)
@@ -328,7 +333,14 @@ namespace Codex.MixamoAttachments.Editor
                     continue;
 
                 Undo.RecordObject(socket.transform, "应用参考手部挂点姿态");
-                socket.transform.localPosition = referencePosition;
+                socket.transform.localPosition = ConvertOffsetPosition(
+                    referenceJoint.position,
+                    referenceHand,
+                    referenceRoot.transform,
+                    socket.transform.parent,
+                    targetRoot.transform,
+                    scale,
+                    preserveReferenceSpaceRotation);
                 socket.transform.localRotation = ConvertLocalRotation(
                     referenceJoint,
                     referenceRoot.transform,
@@ -360,7 +372,13 @@ namespace Codex.MixamoAttachments.Editor
             bool preserveReferenceSpaceRotation)
         {
             Undo.RecordObject(target, "更新参考辅助骨骼");
-            target.localPosition = source.localPosition * positionScale;
+            target.localPosition = ConvertLocalPosition(
+                source,
+                sourceRoot,
+                target.parent,
+                targetRoot,
+                positionScale,
+                preserveReferenceSpaceRotation);
             target.localRotation = ConvertLocalRotation(
                 source,
                 sourceRoot,
@@ -369,6 +387,52 @@ namespace Codex.MixamoAttachments.Editor
                 preserveReferenceSpaceRotation);
             target.localScale = source.localScale;
             EditorUtility.SetDirty(target);
+        }
+
+        private static Vector3 ConvertLocalPosition(
+            Transform source,
+            Transform sourceRoot,
+            Transform targetParent,
+            Transform targetRoot,
+            float positionScale,
+            bool preserveReferenceSpacePose)
+        {
+            if (source == null || source.parent == null)
+                return Vector3.zero;
+
+            return ConvertOffsetPosition(
+                source.position,
+                source.parent,
+                sourceRoot,
+                targetParent,
+                targetRoot,
+                positionScale,
+                preserveReferenceSpacePose);
+        }
+
+        private static Vector3 ConvertOffsetPosition(
+            Vector3 sourceWorldPosition,
+            Transform sourceParent,
+            Transform sourceRoot,
+            Transform targetParent,
+            Transform targetRoot,
+            float positionScale,
+            bool preserveReferenceSpacePose)
+        {
+            if (sourceParent == null || targetParent == null)
+                return Vector3.zero;
+
+            if (!preserveReferenceSpacePose || sourceRoot == null || targetRoot == null)
+                return sourceParent.InverseTransformPoint(sourceWorldPosition) * positionScale;
+
+            // Position offsets, like rotations, are expressed in the parent bone's axes.
+            // Convert the offset through character space before applying it to a rig whose
+            // hand/bone basis can be different. TransformVector also compensates parent
+            // scale, so helper joints and their matching sockets stay coincident.
+            var sourceWorldOffset = sourceWorldPosition - sourceParent.position;
+            var sourceRootOffset = sourceRoot.InverseTransformVector(sourceWorldOffset) * positionScale;
+            var targetWorldOffset = targetRoot.TransformVector(sourceRootOffset);
+            return targetParent.InverseTransformVector(targetWorldOffset);
         }
 
         private static Quaternion ConvertLocalRotation(

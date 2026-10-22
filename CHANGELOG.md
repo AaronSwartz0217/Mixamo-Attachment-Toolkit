@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.3] - 2026-10-22
+
+- Converts socket and auxiliary-joint position offsets through character space when source and target bone axes differ.
+- Keeps `joint1`/`joint2` coincident with their matching weapon sockets after hand-length scaling.
+- Extends editor regression coverage to the complete `transform`/`joint` hierarchy and position offsets.
+
 ## [0.3.2] - 2026-10-22
 
 - Compensates differing source/target hand bone axes so weapon sockets preserve the reference character-space orientation.

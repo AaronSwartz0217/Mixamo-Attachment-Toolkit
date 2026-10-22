@@ -96,6 +96,12 @@ namespace Codex.MixamoAttachments.Editor.Tests
             Assert.That(Quaternion.Angle(targetRootRotation, referenceRootRotation), Is.LessThan(0.001f));
             Assert.That(Quaternion.Angle(targetSocket.transform.localRotation, referenceSocket.localRotation),
                 Is.GreaterThan(1f));
+            var targetSocketRootOffset = target.transform.InverseTransformVector(
+                targetSocket.transform.position - targetHand.position);
+            var referenceSocketRootOffset = reference.transform.InverseTransformVector(
+                referenceSocket.position - referenceHand.position);
+            Assert.That(Vector3.Distance(targetSocketRootOffset, referenceSocketRootOffset * 2f),
+                Is.LessThan(0.00001f));
 
             var targetHelper = targetHand.Find("transform1");
             var targetJoint = targetHelper.Find("joint1");
@@ -109,6 +115,12 @@ namespace Codex.MixamoAttachments.Editor.Tests
                 Is.LessThan(0.001f));
             Assert.That(Quaternion.Angle(targetJointRootRotation, referenceJointRootRotation),
                 Is.LessThan(0.001f));
+            var targetJointRootOffset = target.transform.InverseTransformVector(
+                targetJoint.position - targetHand.position);
+            var referenceJointRootOffset = reference.transform.InverseTransformVector(
+                referenceJoint.position - referenceHand.position);
+            Assert.That(Vector3.Distance(targetJointRootOffset, referenceJointRootOffset * 2f),
+                Is.LessThan(0.00001f));
         }
 
         [Test]
