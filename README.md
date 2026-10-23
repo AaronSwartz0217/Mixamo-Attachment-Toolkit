@@ -24,6 +24,12 @@
 3. 选择 `Add package from disk...`。
 4. 选择本包根目录的 `package.json`。
 
+也可下载 [0.3.3 离线包](Distribution~/com.codex.mixamo-attachment-toolkit-0.3.3.tgz)，在 Package Manager 中使用 `Add package from tarball...` 安装。包体对应源码提交 `00de45f5663c8b2ca09abb8ea790475eaf765c3b`，校验值见 [SHA256SUMS.txt](Distribution~/SHA256SUMS.txt)。
+
+## 小怪资源交付标准
+
+[小怪模型挂点与预制体交付标准](Documentation~/EnemyAssetStandard.md) 定义了以已确认 ClayHusk 为主参考的挂点、FBX、Prefab、体型适配胶囊体、材质和验收要求。胶囊体与材质配置属于项目资源流程，不是插件 0.3.3 已有的自动批处理功能。配套包不包含项目模型或贴图。
+
 ## 快速开始
 
 1. 打开 `Tools > Mixamo Attachment Toolkit`。
